@@ -335,58 +335,6 @@ export default function AdminPage() {
           </Card>
         </div>
 
-        {/* Data Management */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
-              Data Management
-            </CardTitle>
-            <CardDescription>
-              Manage local storage data and mock applications
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-3">
-              <Button 
-                variant="outline" 
-                onClick={reloadMockData}
-                className="gap-2"
-              >
-                <Shield className="h-4 w-4" />
-                Reload Mock Data
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={addMockData}
-                className="gap-2"
-              >
-                <Users className="h-4 w-4" />
-                Add Mock Data
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={refreshApplications}
-                className="gap-2"
-              >
-                <Search className="h-4 w-4" />
-                Refresh Data
-              </Button>
-              <Button 
-                variant="destructive" 
-                onClick={clearAllData}
-                className="gap-2"
-              >
-                <XCircle className="h-4 w-4" />
-                Clear All Data
-              </Button>
-            </div>
-            <div className="mt-3 text-sm text-muted-foreground">
-              Currently storing {applications.length} applications in local storage
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Filters */}
         <Card className="mb-6">
           <CardContent className="pt-6">
@@ -456,11 +404,10 @@ export default function AdminPage() {
                       <SortButton field="riskScore">AI Risk Score</SortButton>
                     </TableHead>
                     <TableHead className="font-semibold">Status</TableHead>
-                    <TableHead className="font-semibold">Flags</TableHead>
                     <TableHead className="font-semibold">
                       <SortButton field="submittedAt">Submitted</SortButton>
                     </TableHead>
-                    <TableHead className="font-semibold text-right">Actions</TableHead>
+                    <TableHead className="font-semibold text-right"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -481,16 +428,6 @@ export default function AdminPage() {
                         <Badge className={getStatusColor(app.status)}>
                           {app.status.replace('_', ' ')}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {app.fraudFlags.length > 0 ? (
-                          <div className="flex items-center gap-1 text-warning-foreground">
-                            <AlertTriangle className="h-4 w-4" />
-                            <span className="text-sm">{app.fraudFlags.length}</span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">None</span>
-                        )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(app.submittedAt)}
