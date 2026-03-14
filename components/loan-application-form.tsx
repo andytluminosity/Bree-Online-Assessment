@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { formatCurrency } from '@/lib/mock-data'
+import { loanApplicationStorage } from '@/lib/local-storage'
 import { 
   User, 
   Briefcase, 
@@ -104,6 +105,7 @@ export function LoanApplicationForm() {
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [applicationId, setApplicationId] = useState('')
 
   const updateFormData = (field: keyof FormData, value: string | boolean | File[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -163,25 +165,45 @@ export function LoanApplicationForm() {
   const handleSubmit = async () => {
     setIsSubmitting(true)
     try {
-      const response = await fetch('/api/loan-applications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to submit application')
+      // Transform form data to match LoanApplication interface
+      const applicationData = {
+        applicantName: `${formData.firstName} ${formData.lastName}`,
+        email: formData.email,
+        phone: formData.phone,
+        dateOfBirth: formData.dateOfBirth,
+        ssn: formData.ssn,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        zipCode: formData.zipCode,
+        employmentStatus: formData.employmentStatus,
+        employerName: formData.employerName,
+        jobTitle: formData.jobTitle,
+        yearsEmployed: Number(formData.yearsEmployed),
+        annualIncome: Number(formData.annualIncome),
+        monthlyExpenses: Number(formData.monthlyExpenses),
+        existingDebts: Number(formData.existingDebts),
+        loanAmount: Number(formData.loanAmount),
+        loanPurpose: formData.loanPurpose,
+        loanTerm: Number(formData.loanTerm),
+        status: 'submitted' as const,
+        riskScore: Math.floor(Math.random() * 40) + 60, // Random risk score between 60-100
+        recommendedAmount: Number(formData.loanAmount),
+        interestRate: 7.5 + Math.random() * 5, // Random interest rate between 7.5-12.5%
+        monthlyPayment: (Number(formData.loanAmount) * 1.08) / Number(formData.loanTerm),
+        fraudFlags: [],
+        documents: formData.documents.map(doc => ({ 
+          name: doc.name, 
+          status: 'pending' as const 
+        })),
       }
 
-      const submittedApplication = await response.json()
+      const submittedApplication = loanApplicationStorage.saveApplication(applicationData)
       console.log('Application submitted:', submittedApplication)
+      setApplicationId(submittedApplication.id)
       setIsSubmitted(true)
     } catch (error) {
       console.error('Error submitting application:', error)
-      // You could add error handling here, like showing a toast or alert
       alert('Failed to submit application. Please try again.')
     } finally {
       setIsSubmitting(false)
@@ -203,7 +225,7 @@ export function LoanApplicationForm() {
           </p>
           <div className="bg-muted/50 rounded-lg p-4 mb-6 max-w-sm mx-auto">
             <p className="text-sm text-muted-foreground">Application ID</p>
-            <p className="text-lg font-semibold text-foreground">LA-2024-006</p>
+            <p className="text-lg font-semibold text-foreground">{applicationId}</p>
           </div>
           <Button onClick={() => window.location.href = '/dashboard'}>
             View Application Status

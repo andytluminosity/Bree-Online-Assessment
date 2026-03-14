@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Navigation } from '@/components/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -48,6 +48,7 @@ import {
   getRiskScoreColor,
   type LoanApplication 
 } from '@/lib/mock-data'
+import { loanApplicationStorage } from '@/lib/local-storage'
 import {
   Search,
   Filter,
@@ -99,7 +100,7 @@ function RiskScoreMeter({ score }: { score: number }) {
 }
 
 export default function AdminPage() {
-  const [applications, setApplications] = useState<LoanApplication[]>(mockApplications)
+  const [applications, setApplications] = useState<LoanApplication[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [riskFilter, setRiskFilter] = useState<string>('all')
@@ -111,6 +112,39 @@ export default function AdminPage() {
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false)
   const [actionNotes, setActionNotes] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+
+  // Initialize with local storage data
+  useEffect(() => {
+    // Initialize with mock data if storage is empty
+    loanApplicationStorage.initializeWithMockData(mockApplications)
+    // Load applications from storage
+    setApplications(loanApplicationStorage.getApplications())
+  }, [])
+
+  // Function to refresh applications from local storage
+  const refreshApplications = () => {
+    setApplications(loanApplicationStorage.getApplications())
+  }
+
+  // Function to reload mock data
+  const reloadMockData = () => {
+    loanApplicationStorage.reloadMockData(mockApplications)
+    refreshApplications()
+  }
+
+  // Function to add mock data to existing
+  const addMockData = () => {
+    loanApplicationStorage.addMockData(mockApplications)
+    refreshApplications()
+  }
+
+  // Function to clear all data
+  const clearAllData = () => {
+    if (confirm('Are you sure you want to clear all loan applications? This action cannot be undone.')) {
+      loanApplicationStorage.clearApplications()
+      refreshApplications()
+    }
+  }
 
   // Filter and sort applications
   const filteredApplications = applications
@@ -164,12 +198,16 @@ export default function AdminPage() {
     if (!selectedApplication) return
     setIsProcessing(true)
     await new Promise((resolve) => setTimeout(resolve, 1500))
-    setApplications((prev) =>
-      prev.map((app) =>
-        app.id === selectedApplication.id ? { ...app, status: 'approved' as const } : app
-      )
-    )
-    setSelectedApplication((prev) => (prev ? { ...prev, status: 'approved' as const } : null))
+    
+    const updatedApp = loanApplicationStorage.updateApplication(selectedApplication.id, {
+      status: 'approved' as const
+    })
+    
+    if (updatedApp) {
+      setSelectedApplication(updatedApp)
+      refreshApplications()
+    }
+    
     setIsProcessing(false)
     setIsApproveDialogOpen(false)
     setActionNotes('')
@@ -179,12 +217,16 @@ export default function AdminPage() {
     if (!selectedApplication) return
     setIsProcessing(true)
     await new Promise((resolve) => setTimeout(resolve, 1500))
-    setApplications((prev) =>
-      prev.map((app) =>
-        app.id === selectedApplication.id ? { ...app, status: 'rejected' as const } : app
-      )
-    )
-    setSelectedApplication((prev) => (prev ? { ...prev, status: 'rejected' as const } : null))
+    
+    const updatedApp = loanApplicationStorage.updateApplication(selectedApplication.id, {
+      status: 'rejected' as const
+    })
+    
+    if (updatedApp) {
+      setSelectedApplication(updatedApp)
+      refreshApplications()
+    }
+    
     setIsProcessing(false)
     setIsRejectDialogOpen(false)
     setActionNotes('')
@@ -292,6 +334,58 @@ export default function AdminPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Data Management */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              Data Management
+            </CardTitle>
+            <CardDescription>
+              Manage local storage data and mock applications
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              <Button 
+                variant="outline" 
+                onClick={reloadMockData}
+                className="gap-2"
+              >
+                <Shield className="h-4 w-4" />
+                Reload Mock Data
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={addMockData}
+                className="gap-2"
+              >
+                <Users className="h-4 w-4" />
+                Add Mock Data
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={refreshApplications}
+                className="gap-2"
+              >
+                <Search className="h-4 w-4" />
+                Refresh Data
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={clearAllData}
+                className="gap-2"
+              >
+                <XCircle className="h-4 w-4" />
+                Clear All Data
+              </Button>
+            </div>
+            <div className="mt-3 text-sm text-muted-foreground">
+              Currently storing {applications.length} applications in local storage
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Filters */}
         <Card className="mb-6">
