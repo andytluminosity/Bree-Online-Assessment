@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Navigation } from '@/components/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -40,7 +40,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import { formatCurrency } from '@/lib/mock-data'
+import { 
+  mockApplications, 
+  formatCurrency, 
+  formatDate, 
+  getStatusColor,
+  getRiskScoreColor,
+  type LoanApplication 
+} from '@/lib/mock-data'
 import {
   Search,
   Filter,
@@ -62,47 +69,8 @@ import {
   ChevronDown,
 } from 'lucide-react'
 
-interface LoanApplication {
-  id: string
-  firstName: string
-  lastName: string
-  email: string
-  phone: string
-  dateOfBirth: string
-  ssn: string
-  address: string
-  city: string
-  state: string
-  zipCode: string
-  employmentStatus: string
-  employerName: string
-  jobTitle: string
-  yearsEmployed: string
-  annualIncome: string
-  monthlyExpenses: string
-  existingDebts: string
-  loanAmount: string
-  loanPurpose: string
-  loanTerm: string
-  documents: string[]
-  acceptTerms: boolean
-  acceptPrivacy: boolean
-  aiRiskScore: number
-  status: 'pending' | 'under_review' | 'approved' | 'rejected' | 'needs_more_info'
-  flags: string[]
-  createdAt: string
-  updatedAt: string
-}
-
-type SortField = 'createdAt' | 'aiRiskScore' | 'loanAmount' | 'annualIncome'
+type SortField = 'submittedAt' | 'riskScore' | 'loanAmount' | 'annualIncome'
 type SortOrder = 'asc' | 'desc'
-
-const getRiskScoreColor = (score: number) => {
-  if (score >= 80) return 'text-success'
-  if (score >= 60) return 'text-primary'
-  if (score >= 40) return 'text-warning'
-  return 'text-destructive'
-}
 
 function RiskScoreMeter({ score }: { score: number }) {
   const getBarColor = (threshold: number) => {
@@ -131,12 +99,11 @@ function RiskScoreMeter({ score }: { score: number }) {
 }
 
 export default function AdminPage() {
-  const [applications, setApplications] = useState<LoanApplication[]>([])
-  const [loading, setLoading] = useState(true)
+  const [applications, setApplications] = useState<LoanApplication[]>(mockApplications)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [riskFilter, setRiskFilter] = useState<string>('all')
-  const [sortField, setSortField] = useState<SortField>('createdAt')
+  const [sortField, setSortField] = useState<SortField>('submittedAt')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [selectedApplication, setSelectedApplication] = useState<LoanApplication | null>(null)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
@@ -145,55 +112,35 @@ export default function AdminPage() {
   const [actionNotes, setActionNotes] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
 
-  // Fetch applications from API
-  useEffect(() => {
-    const fetchApplications = async () => {
-      try {
-        const response = await fetch('/api/loan-applications')
-        if (response.ok) {
-          const data = await response.json()
-          setApplications(data)
-        }
-      } catch (error) {
-        console.error('Failed to fetch applications:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchApplications()
-  }, [])
-
   // Filter and sort applications
   const filteredApplications = applications
     .filter((app) => {
-      const applicantName = `${app.firstName} ${app.lastName}`
       const matchesSearch =
-        applicantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        app.applicantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         app.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         app.email.toLowerCase().includes(searchTerm.toLowerCase())
       const matchesStatus = statusFilter === 'all' || app.status === statusFilter
       const matchesRisk =
         riskFilter === 'all' ||
-        (riskFilter === 'high' && app.aiRiskScore >= 80) ||
-        (riskFilter === 'medium' && app.aiRiskScore >= 50 && app.aiRiskScore < 80) ||
-        (riskFilter === 'low' && app.aiRiskScore < 50)
+        (riskFilter === 'high' && app.riskScore >= 80) ||
+        (riskFilter === 'medium' && app.riskScore >= 50 && app.riskScore < 80) ||
+        (riskFilter === 'low' && app.riskScore < 50)
       return matchesSearch && matchesStatus && matchesRisk
     })
     .sort((a, b) => {
       let comparison = 0
       switch (sortField) {
-        case 'createdAt':
-          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        case 'submittedAt':
+          comparison = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime()
           break
-        case 'aiRiskScore':
-          comparison = a.aiRiskScore - b.aiRiskScore
+        case 'riskScore':
+          comparison = a.riskScore - b.riskScore
           break
         case 'loanAmount':
-          comparison = Number(a.loanAmount) - Number(b.loanAmount)
+          comparison = a.loanAmount - b.loanAmount
           break
         case 'annualIncome':
-          comparison = Number(a.annualIncome) - Number(b.annualIncome)
+          comparison = a.annualIncome - b.annualIncome
           break
       }
       return sortOrder === 'asc' ? comparison : -comparison
@@ -216,57 +163,31 @@ export default function AdminPage() {
   const handleApprove = async () => {
     if (!selectedApplication) return
     setIsProcessing(true)
-    try {
-      const response = await fetch(`/api/loan-applications/${selectedApplication.id}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'approved' }),
-      })
-
-      if (response.ok) {
-        const updatedApplication = await response.json()
-        setApplications((prev) =>
-          prev.map((app) => (app.id === selectedApplication.id ? updatedApplication : app))
-        )
-        setSelectedApplication(updatedApplication)
-      }
-    } catch (error) {
-      console.error('Failed to approve application:', error)
-    } finally {
-      setIsProcessing(false)
-      setIsApproveDialogOpen(false)
-      setActionNotes('')
-    }
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    setApplications((prev) =>
+      prev.map((app) =>
+        app.id === selectedApplication.id ? { ...app, status: 'approved' as const } : app
+      )
+    )
+    setSelectedApplication((prev) => (prev ? { ...prev, status: 'approved' as const } : null))
+    setIsProcessing(false)
+    setIsApproveDialogOpen(false)
+    setActionNotes('')
   }
 
   const handleReject = async () => {
     if (!selectedApplication) return
     setIsProcessing(true)
-    try {
-      const response = await fetch(`/api/loan-applications/${selectedApplication.id}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'rejected' }),
-      })
-
-      if (response.ok) {
-        const updatedApplication = await response.json()
-        setApplications((prev) =>
-          prev.map((app) => (app.id === selectedApplication.id ? updatedApplication : app))
-        )
-        setSelectedApplication(updatedApplication)
-      }
-    } catch (error) {
-      console.error('Failed to reject application:', error)
-    } finally {
-      setIsProcessing(false)
-      setIsRejectDialogOpen(false)
-      setActionNotes('')
-    }
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    setApplications((prev) =>
+      prev.map((app) =>
+        app.id === selectedApplication.id ? { ...app, status: 'rejected' as const } : app
+      )
+    )
+    setSelectedApplication((prev) => (prev ? { ...prev, status: 'rejected' as const } : null))
+    setIsProcessing(false)
+    setIsRejectDialogOpen(false)
+    setActionNotes('')
   }
 
   const SortButton = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
@@ -284,42 +205,11 @@ export default function AdminPage() {
   // Stats
   const stats = {
     total: applications.length,
-    pending: applications.filter((a) => ['pending', 'under_review'].includes(a.status)).length,
+    pending: applications.filter((a) => ['submitted', 'under_review'].includes(a.status)).length,
     approved: applications.filter((a) => a.status === 'approved').length,
     rejected: applications.filter((a) => a.status === 'rejected').length,
-    avgRiskScore: Math.round(applications.reduce((sum, a) => sum + a.aiRiskScore, 0) / applications.length || 0),
-    totalVolume: applications.reduce((sum, a) => sum + Number(a.loanAmount), 0),
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return 'bg-success text-success-foreground'
-      case 'rejected':
-        return 'bg-destructive text-destructive-foreground'
-      case 'under_review':
-        return 'bg-warning text-warning-foreground'
-      case 'needs_more_info':
-        return 'bg-info text-info-foreground'
-      default:
-        return 'bg-muted text-muted-foreground'
-    }
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
+    avgRiskScore: Math.round(applications.reduce((sum, a) => sum + a.riskScore, 0) / applications.length),
+    totalVolume: applications.reduce((sum, a) => sum + a.loanAmount, 0),
   }
 
   return (
@@ -469,12 +359,12 @@ export default function AdminPage() {
                       <SortButton field="annualIncome">Income</SortButton>
                     </TableHead>
                     <TableHead className="font-semibold">
-                      <SortButton field="aiRiskScore">AI Risk Score</SortButton>
+                      <SortButton field="riskScore">AI Risk Score</SortButton>
                     </TableHead>
                     <TableHead className="font-semibold">Status</TableHead>
                     <TableHead className="font-semibold">Flags</TableHead>
                     <TableHead className="font-semibold">
-                      <SortButton field="createdAt">Submitted</SortButton>
+                      <SortButton field="submittedAt">Submitted</SortButton>
                     </TableHead>
                     <TableHead className="font-semibold text-right">Actions</TableHead>
                   </TableRow>
@@ -484,14 +374,14 @@ export default function AdminPage() {
                     <TableRow key={app.id} className="hover:bg-muted/30 cursor-pointer">
                       <TableCell>
                         <div>
-                          <p className="font-medium text-foreground">{app.firstName} {app.lastName}</p>
+                          <p className="font-medium text-foreground">{app.applicantName}</p>
                           <p className="text-sm text-muted-foreground">{app.id}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">{formatCurrency(Number(app.loanAmount))}</TableCell>
-                      <TableCell>{formatCurrency(Number(app.annualIncome))}</TableCell>
+                      <TableCell className="font-medium">{formatCurrency(app.loanAmount)}</TableCell>
+                      <TableCell>{formatCurrency(app.annualIncome)}</TableCell>
                       <TableCell>
-                        <RiskScoreMeter score={app.aiRiskScore} />
+                        <RiskScoreMeter score={app.riskScore} />
                       </TableCell>
                       <TableCell>
                         <Badge className={getStatusColor(app.status)}>
@@ -499,17 +389,17 @@ export default function AdminPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {app.flags.length > 0 ? (
+                        {app.fraudFlags.length > 0 ? (
                           <div className="flex items-center gap-1 text-warning-foreground">
                             <AlertTriangle className="h-4 w-4" />
-                            <span className="text-sm">{app.flags.length}</span>
+                            <span className="text-sm">{app.fraudFlags.length}</span>
                           </div>
                         ) : (
                           <span className="text-sm text-muted-foreground">None</span>
                         )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(app.createdAt)}
+                        {formatDate(app.submittedAt)}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
@@ -543,7 +433,7 @@ export default function AdminPage() {
                     </Badge>
                   </SheetTitle>
                   <SheetDescription>
-                    Submitted on {formatDate(selectedApplication.createdAt)}
+                    Submitted on {formatDate(selectedApplication.submittedAt)}
                   </SheetDescription>
                 </SheetHeader>
 
@@ -559,28 +449,28 @@ export default function AdminPage() {
                     <CardContent>
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <p className={`text-4xl font-bold text-${selectedApplication.aiRiskScore >= 80 ? 'success' : selectedApplication.aiRiskScore >= 60 ? 'primary' : selectedApplication.aiRiskScore >= 40 ? 'warning' : 'destructive'}`}>
-                            {selectedApplication.aiRiskScore}
+                          <p className={`text-4xl font-bold ${getRiskScoreColor(selectedApplication.riskScore)}`}>
+                            {selectedApplication.riskScore}
                           </p>
                           <p className="text-sm text-muted-foreground">Risk Score</p>
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-semibold text-foreground">
-                            {formatCurrency(Number(selectedApplication.loanAmount))}
+                            {formatCurrency(selectedApplication.recommendedAmount)}
                           </p>
-                          <p className="text-sm text-muted-foreground">Requested Amount</p>
+                          <p className="text-sm text-muted-foreground">Recommended Amount</p>
                         </div>
                       </div>
-                      <Progress value={selectedApplication.aiRiskScore} className="h-2" />
+                      <Progress value={selectedApplication.riskScore} className="h-2" />
                       
-                      {selectedApplication.flags.length > 0 && (
+                      {selectedApplication.fraudFlags.length > 0 && (
                         <div className="mt-4 p-3 rounded-lg bg-warning/10 border border-warning/20">
                           <div className="flex items-center gap-2 mb-2">
                             <AlertTriangle className="h-4 w-4 text-warning-foreground" />
-                            <span className="text-sm font-medium text-foreground">Risk Flags</span>
+                            <span className="text-sm font-medium text-foreground">Fraud Flags</span>
                           </div>
                           <ul className="text-sm text-muted-foreground space-y-1">
-                            {selectedApplication.flags.map((flag: string, index: number) => (
+                            {selectedApplication.fraudFlags.map((flag, index) => (
                               <li key={index}>• {flag}</li>
                             ))}
                           </ul>
@@ -597,7 +487,7 @@ export default function AdminPage() {
                     <CardContent className="space-y-3 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Name</span>
-                        <span className="font-medium text-foreground">{selectedApplication.firstName} {selectedApplication.lastName}</span>
+                        <span className="font-medium text-foreground">{selectedApplication.applicantName}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Email</span>
@@ -640,7 +530,7 @@ export default function AdminPage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Annual Income</span>
-                        <span className="font-medium text-foreground">{formatCurrency(Number(selectedApplication.annualIncome))}</span>
+                        <span className="font-medium text-foreground">{formatCurrency(selectedApplication.annualIncome)}</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -653,7 +543,7 @@ export default function AdminPage() {
                     <CardContent className="space-y-3 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Amount</span>
-                        <span className="font-medium text-foreground">{formatCurrency(Number(selectedApplication.loanAmount))}</span>
+                        <span className="font-medium text-foreground">{formatCurrency(selectedApplication.loanAmount)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Purpose</span>
@@ -662,6 +552,14 @@ export default function AdminPage() {
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Term</span>
                         <span className="font-medium text-foreground">{selectedApplication.loanTerm} months</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Interest Rate</span>
+                        <span className="font-medium text-foreground">{selectedApplication.interestRate}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Monthly Payment</span>
+                        <span className="font-medium text-foreground">{formatCurrency(selectedApplication.monthlyPayment)}</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -672,14 +570,23 @@ export default function AdminPage() {
                       <CardTitle className="text-sm">Documents</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                      {selectedApplication.documents.map((doc: string, index: number) => (
+                      {selectedApplication.documents.map((doc, index) => (
                         <div key={index} className="flex items-center justify-between p-2 rounded bg-muted/50">
                           <div className="flex items-center gap-2">
                             <FileText className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm text-foreground">{doc}</span>
+                            <span className="text-sm text-foreground">{doc.name}</span>
                           </div>
-                          <Badge variant="outline" className="border-success/50 text-success">
-                            Uploaded
+                          <Badge
+                            variant="outline"
+                            className={
+                              doc.status === 'approved'
+                                ? 'border-success/50 text-success'
+                                : doc.status === 'pending'
+                                ? 'border-warning/50 text-warning-foreground'
+                                : 'border-destructive/50 text-destructive'
+                            }
+                          >
+                            {doc.status}
                           </Badge>
                         </div>
                       ))}
@@ -687,7 +594,7 @@ export default function AdminPage() {
                   </Card>
 
                   {/* Action Buttons */}
-                  {['pending', 'under_review'].includes(selectedApplication.status) && (
+                  {['submitted', 'under_review'].includes(selectedApplication.status) && (
                     <div className="flex gap-3">
                       <Button
                         className="flex-1 gap-2"
@@ -729,7 +636,7 @@ export default function AdminPage() {
                 <p className="text-sm text-muted-foreground">Application ID</p>
                 <p className="font-medium text-foreground">{selectedApplication?.id}</p>
                 <p className="text-sm text-muted-foreground mt-2">Amount</p>
-                <p className="font-medium text-foreground">{formatCurrency(Number(selectedApplication?.loanAmount) || 0)}</p>
+                <p className="font-medium text-foreground">{formatCurrency(selectedApplication?.loanAmount || 0)}</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="approveNotes">Notes (optional)</Label>
@@ -779,7 +686,7 @@ export default function AdminPage() {
                 <p className="text-sm text-muted-foreground">Application ID</p>
                 <p className="font-medium text-foreground">{selectedApplication?.id}</p>
                 <p className="text-sm text-muted-foreground mt-2">Amount</p>
-                <p className="font-medium text-foreground">{formatCurrency(Number(selectedApplication?.loanAmount) || 0)}</p>
+                <p className="font-medium text-foreground">{formatCurrency(selectedApplication?.loanAmount || 0)}</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="rejectNotes">Reason for rejection</Label>

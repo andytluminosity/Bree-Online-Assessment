@@ -1,0 +1,37 @@
+[
+  {
+    "firstName": "Andy",
+    "lastName": "Tong",
+    "email": "andytong369@gmail.com",
+    "phone": "4379936167",
+    "dateOfBirth": "2222-02-22",
+    "ssn": "241521",
+    "address": "200 University Ave",
+    "city": "Waterloo",
+    "state": "FL",
+    "zipCode": "N2J4B6",
+    "employmentStatus": "part-time",
+    "employerName": "215125",
+    "jobTitle": "124512",
+    "yearsEmployed": "12512",
+    "annualIncome": "21515111",
+    "monthlyExpenses": "21515",
+    "existingDebts": "1241",
+    "loanAmount": "23132",
+    "loanPurpose": "business",
+    "loanTerm": "60",
+    "documents": [
+      {}
+    ],
+    "acceptTerms": true,
+    "acceptPrivacy": true,
+    "id": "LA-1773446836797-90P4P84I0",
+    "aiRiskScore": 80,
+    "status": "pending",
+    "flags": [
+      "low_risk"
+    ],
+    "createdAt": "2026-03-14T00:07:16.797Z",
+    "updatedAt": "2026-03-14T00:07:16.797Z"
+  }
+]
