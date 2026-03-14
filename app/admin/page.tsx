@@ -337,7 +337,7 @@ export default function AdminPage() {
 
         {/* Filters */}
         <Card className="mb-6">
-          <CardContent className="pt-6">
+          <CardContent className="">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <div className="relative">

@@ -161,7 +161,7 @@ function ApplicationCard({ application }: { application: LoanApplication }) {
         )}
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div className="p-4 rounded-lg bg-muted/50">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <DollarSign className="h-4 w-4" />
@@ -169,15 +169,6 @@ function ApplicationCard({ application }: { application: LoanApplication }) {
             </div>
             <p className="text-lg font-semibold text-foreground">
               {formatCurrency(application.loanAmount)}
-            </p>
-          </div>
-          <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
-            <div className="flex items-center gap-2 text-primary mb-1">
-              <TrendingUp className="h-4 w-4" />
-              <span className="text-xs">Recommended</span>
-            </div>
-            <p className="text-lg font-semibold text-foreground">
-              {formatCurrency(application.recommendedAmount)}
             </p>
           </div>
           <div className="p-4 rounded-lg bg-muted/50">
